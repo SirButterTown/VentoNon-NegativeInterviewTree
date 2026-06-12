@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tree Builder</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f5f5f3;
+      --bg-tertiary: #ebebea;
+      --text-primary: #1a1a1a;
+      --text-secondary: #6b6b6b;
+      --text-tertiary: #a0a0a0;
+      --border-light: rgba(0,0,0,0.12);
+      --border-mid: rgba(0,0,0,0.22);
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --purple-dark: #3C3489;
+      --purple-mid: #534AB7;
+      --purple-light: #AFA9EC;
+      --purple-pale: #EEEDFE;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #1e1e1e;
+        --bg-secondary: #2a2a2a;
+        --bg-tertiary: #333333;
+        --text-primary: #f0f0f0;
+        --text-secondary: #aaaaaa;
+        --text-tertiary: #666666;
+        --border-light: rgba(255,255,255,0.12);
+        --border-mid: rgba(255,255,255,0.22);
+        --purple-pale: #26215C;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--bg-primary);
+      border-bottom: 0.5px solid var(--border-light);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-primary);
+      flex: 1;
+    }
+
+    header .badge {
+      font-size: 11px;
+      color: var(--purple-mid);
+      background: var(--purple-pale);
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-weight: 500;
+    }
+
+    #toolbar {
+      background: var(--bg-primary);
+      border-bottom: 0.5px solid var(--border-light);
+      padding: 0.6rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    #toolbar button {
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: var(--radius-md);
+      background: var(--bg-secondary);
+      border: 0.5px solid var(--border-mid);
+      color: var(--text-primary);
+      transition: background .15s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    #toolbar button:hover { background: var(--bg-tertiary); }
+
+    #toolbar button.primary {
+      background: var(--purple-dark);
+      border-color: var(--purple-dark);
+      color: #fff;
+    }
+    #toolbar button.primary:hover { background: var(--purple-mid); }
+
+    #toolbar button.danger {
+      background: transparent;
+      border-color: #e24b4a;
+      color: #e24b4a;
+    }
+    #toolbar button.danger:hover { background: #fcebeb; }
+
+    .sep { width: 0.5px; height: 20px; background: var(--border-light); }
+
+    .hint-text {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    #canvas-wrap {
+      flex: 1;
+      position: relative;
+      margin: 1rem 1.5rem;
+      border: 0.5px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      background: var(--bg-secondary);
+      overflow: hidden;
+      min-height: 500px;
+    }
+
+    svg#tree {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0; left: 0;
+      pointer-events: none;
+    }
+
+    .node-wrap {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      user-select: none;
+    }
+
+    .node-box {
+      background: var(--bg-primary);
+      border: 1.5px solid var(--purple-light);
+      border-radius: var(--radius-md);
+      padding: 8px 12px;
+      min-width: 90px;
+      max-width: 160px;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+      position: relative;
+    }
+
+    .node-box:hover { border-color: #7F77DD; }
+    .node-box.selected {
+      border-color: var(--purple-dark);
+      box-shadow: 0 0 0 2px var(--purple-pale);
+    }
+
+    .node-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      word-break: break-word;
+      text-align: center;
+    }
+
+    .node-sub {
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-align: center;
+      margin-top: 2px;
+      word-break: break-word;
+    }
+
+    .node-add-btn {
+      position: absolute;
+      bottom: -13px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--purple-mid);
+      border: none;
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      opacity: 0;
+      transition: opacity .15s;
+      z-index: 10;
+    }
+
+    .node-wrap:hover .node-add-btn { opacity: 1; }
+
+    #editpanel {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      width: 210px;
+      background: var(--bg-primary);
+      border: 0.5px solid var(--border-mid);
+      border-radius: var(--radius-lg);
+      padding: 1rem;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 20;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    #editpanel.open { display: flex; }
+
+    #editpanel label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    #editpanel input, #editpanel textarea {
+      width: 100%;
+      font-family: inherit;
+      font-size: 13px;
+      padding: 6px 8px;
+      border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-mid);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      resize: vertical;
+      outline: none;
+    }
+
+    #editpanel input:focus, #editpanel textarea:focus {
+      border-color: var(--purple-mid);
+      box-shadow: 0 0 0 2px var(--purple-pale);
+    }
+
+    #editpanel textarea { min-height: 60px; }
+
+    #editpanel .row { display: flex; gap: 6px; }
+    #editpanel .row button {
+      flex: 1;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px;
+      border-radius: var(--radius-md);
+      background: transparent;
+      border: 0.5px solid var(--border-mid);
+      color: var(--text-primary);
+      transition: background .15s;
+    }
+    #editpanel .row button:hover { background: var(--bg-secondary); }
+    #editpanel .row button.save {
+      background: var(--purple-dark);
+      border-color: var(--purple-dark);
+      color: #fff;
+    }
+    #editpanel .row button.save:hover { background: var(--purple-mid); }
+
+    #empty {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+    }
+    #empty p { font-size: 14px; color: var(--text-secondary); }
+    #empty .hint { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; }
+
+    #export-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    #export-modal.open { display: flex; }
+    #export-modal .modal {
+      background: var(--bg-primary);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      width: 340px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    #export-modal h2 { font-size: 15px; font-weight: 500; }
+    #export-modal p { font-size: 13px; color: var(--text-secondary); }
+    #export-modal textarea {
+      width: 100%;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 8px;
+      border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-mid);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      min-height: 100px;
+      resize: vertical;
+    }
+    #export-modal .row { display: flex; gap: 8px; }
+    #export-modal .row button {
+      flex: 1;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px;
+      border-radius: var(--radius-md);
+      background: var(--bg-secondary);
+      border: 0.5px solid var(--border-mid);
+      color: var(--text-primary);
+    }
+    #export-modal .row button.primary {
+      background: var(--purple-dark);
+      border-color: var(--purple-dark);
+      color: #fff;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      padding: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <i class="ti ti-binary-tree" style="font-size:20px;color:var(--purple-mid)" aria-hidden="true"></i>
+  <h1>Tree Builder</h1>
+  <span class="badge">Visual</span>
+</header>
+
+<div id="toolbar">
+  <button class="primary" onclick="addRootNode()">
+    <i class="ti ti-plus" aria-hidden="true"></i> Add root
+  </button>
+  <div class="sep"></div>
+  <span class="hint-text">Click a node to edit &bull; Use <strong>+</strong> to add children &bull; Drag to reposition</span>
+  <div style="flex:1"></div>
+  <button class="danger" id="deleteBtn" onclick="deleteSelected()" style="display:none">
+    <i class="ti ti-trash" aria-hidden="true"></i> Delete
+  </button>
+  <button onclick="openExport()">
+    <i class="ti ti-download" aria-hidden="true"></i> Export JSON
+  </button>
+  <button onclick="importJSON()">
+    <i class="ti ti-upload" aria-hidden="true"></i> Import JSON
+  </button>
+</div>
+
+<div id="canvas-wrap">
+  <svg id="tree">
+    <defs>
+      <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" fill="#AFA9EC"/>
+      </marker>
+    </defs>
+  </svg>
+
+  <div id="empty">
+    <i class="ti ti-binary-tree" style="font-size:40px;color:var(--text-tertiary)" aria-hidden="true"></i>
+    <p style="margin-top:12px">Your tree is empty</p>
+    <p class="hint">Click "Add root" to get started</p>
+  </div>
+
+  <div id="editpanel">
+    <label>Label</label>
+    <input id="elabel" type="text" placeholder="Node title" oninput="liveUpdate()"/>
+    <label>Notes</label>
+    <textarea id="enotes" placeholder="Optional description" oninput="liveUpdate()"></textarea>
+    <div class="row">
+      <button class="save" onclick="saveEdit()">Save</button>
+      <button onclick="closeEdit()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="export-modal">
+  <div class="modal">
+    <h2><i class="ti ti-download" style="vertical-align:-2px;margin-right:6px" aria-hidden="true"></i>Export tree</h2>
+    <p>Copy this JSON to save or share your tree. You can import it later.</p>
+    <textarea id="export-text" readonly></textarea>
+    <div class="row">
+      <button class="primary" onclick="copyExport()">Copy to clipboard</button>
+      <button onclick="closeExport()">Close</button>
+    </div>
+  </div>
+</div>
+
+<footer>Tree Builder &mdash; drag, connect, and annotate nodes freely</footer>
+
+<script>
+let nodes = {}, edges = [], sel = null, idSeq = 0;
+const svg = document.getElementById('tree');
+const canvas = document.getElementById('canvas-wrap');
+const empty = document.getElementById('empty');
+
+function uid() { return 'n' + (++idSeq); }
+
+function canvasSize() {
+  return { w: canvas.offsetWidth, h: canvas.offsetHeight };
+}
+
+function addRootNode() {
+  const { w, h } = canvasSize();
+  const id = uid();
+  nodes[id] = { id, label: 'New node', notes: '', x: w / 2, y: h / 2, parent: null };
+  render(); selectNode(id);
+}
+
+function addChild(parentId) {
+  const par = nodes[parentId]; if (!par) return;
+  const id = uid();
+  const siblings = Object.values(nodes).filter(n => n.parent === parentId);
+  const ox = (siblings.length - Math.floor(siblings.length / 2)) * 120;
+  nodes[id] = { id, label: 'New node', notes: '', x: par.x + ox - 60, y: par.y + 110, parent: parentId };
+  edges.push({ from: parentId, to: id });
+  render(); selectNode(id);
+}
+
+function deleteSelected() {
+  if (!sel) return;
+  function removeSubtree(nid) {
+    Object.values(nodes).forEach(n => { if (n.parent === nid) removeSubtree(n.id); });
+    delete nodes[nid];
+    edges = edges.filter(e => e.from !== nid && e.to !== nid);
+  }
+  removeSubtree(sel);
+  sel = null; closeEdit(); render();
+}
+
+function selectNode(id) {
+  sel = id;
+  const n = nodes[id]; if (!n) return;
+  document.getElementById('elabel').value = n.label;
+  document.getElementById('enotes').value = n.notes;
+  document.getElementById('editpanel').classList.add('open');
+  document.getElementById('deleteBtn').style.display = '';
+  render();
+}
+
+function closeEdit() {
+  document.getElementById('editpanel').classList.remove('open');
+  document.getElementById('deleteBtn').style.display = 'none';
+  sel = null; render();
+}
+
+function liveUpdate() {
+  if (!sel || !nodes[sel]) return;
+  nodes[sel].label = document.getElementById('elabel').value || '(empty)';
+  nodes[sel].notes = document.getElementById('enotes').value;
+  renderNodes();
+}
+
+function saveEdit() {
+  if (!sel || !nodes[sel]) return;
+  nodes[sel].label = document.getElementById('elabel').value || '(empty)';
+  nodes[sel].notes = document.getElementById('enotes').value;
+  closeEdit();
+}
+
+function render() {
+  empty.style.display = Object.keys(nodes).length === 0 ? 'block' : 'none';
+  renderEdges(); renderNodes();
+}
+
+function renderEdges() {
+  svg.querySelectorAll('line').forEach(l => l.remove());
+  edges.forEach(e => {
+    const a = nodes[e.from], b = nodes[e.to]; if (!a || !b) return;
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', a.x); line.setAttribute('y1', a.y + 26);
+    line.setAttribute('x2', b.x); line.setAttribute('y2', b.y - 26);
+    line.setAttribute('stroke', '#AFA9EC'); line.setAttribute('stroke-width', '1.5');
+    line.setAttribute('marker-end', 'url(#arr)');
+    svg.appendChild(line);
+  });
+}
+
+function renderNodes() {
+  const existing = new Set(Object.keys(nodes));
+  document.querySelectorAll('.node-wrap').forEach(el => {
+    if (!existing.has(el.dataset.id)) el.remove();
+  });
+  Object.values(nodes).forEach(n => {
+    let wrap = document.querySelector(`.node-wrap[data-id="${n.id}"]`);
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.className = 'node-wrap'; wrap.dataset.id = n.id;
+      const box = document.createElement('div'); box.className = 'node-box';
+      const lbl = document.createElement('div'); lbl.className = 'node-label';
+      const sub = document.createElement('div'); sub.className = 'node-sub';
+      const addbtn = document.createElement('button'); addbtn.className = 'node-add-btn';
+      addbtn.innerHTML = '+'; addbtn.title = 'Add child';
+      addbtn.onclick = (ev) => { ev.stopPropagation(); addChild(n.id); };
+      box.appendChild(lbl); box.appendChild(sub); box.appendChild(addbtn);
+      wrap.appendChild(box);
+      canvas.appendChild(wrap);
+      box.onclick = () => selectNode(n.id);
+      makeDraggable(wrap, n);
+    }
+    wrap.style.left = n.x + 'px'; wrap.style.top = n.y + 'px';
+    const box = wrap.querySelector('.node-box');
+    const lbl = wrap.querySelector('.node-label');
+    const sub = wrap.querySelector('.node-sub');
+    lbl.textContent = n.label || '(empty)';
+    sub.textContent = n.notes ? n.notes.slice(0, 40) + (n.notes.length > 40 ? '…' : '') : '';
+    sub.style.display = n.notes ? 'block' : 'none';
+    box.classList.toggle('selected', sel === n.id);
+  });
+}
+
+function makeDraggable(wrap, node) {
+  let dragging = false;
+  wrap.addEventListener('mousedown', e => {
+    if (e.target.tagName === 'BUTTON') return;
+    dragging = true;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const rect = canvas.getBoundingClientRect();
+    node.x = Math.max(60, Math.min(rect.width - 60, e.clientX - rect.left));
+    node.y = Math.max(30, Math.min(rect.height - 30, e.clientY - rect.top));
+    wrap.style.left = node.x + 'px'; wrap.style.top = node.y + 'px';
+    renderEdges();
+  });
+  document.addEventListener('mouseup', () => { dragging = false; });
+}
+
+function openExport() {
+  const data = JSON.stringify({ nodes, edges, idSeq }, null, 2);
+  document.getElementById('export-text').value = data;
+  document.getElementById('export-modal').classList.add('open');
+}
+
+function closeExport() {
+  document.getElementById('export-modal').classList.remove('open');
+}
+
+function copyExport() {
+  const ta = document.getElementById('export-text');
+  ta.select();
+  document.execCommand('copy');
+  const btn = document.querySelector('#export-modal .primary');
+  btn.textContent = 'Copied!';
+  setTimeout(() => { btn.textContent = 'Copy to clipboard'; }, 1500);
+}
+
+function importJSON() {
+  const raw = prompt('Paste your exported JSON here:');
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    nodes = data.nodes || {};
+    edges = data.edges || [];
+    idSeq = data.idSeq || 0;
+    sel = null;
+    closeEdit();
+    render();
+  } catch (e) {
+    alert('Invalid JSON — make sure you paste the full exported text.');
+  }
+}
+
+document.getElementById('canvas-wrap').addEventListener('click', e => {
+  if (e.target === e.currentTarget || e.target === svg) closeEdit();
+});
+
+document.getElementById('export-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('export-modal')) closeExport();
+});
+</script>
+</body>
+</html>
