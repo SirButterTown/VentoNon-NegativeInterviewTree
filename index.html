@@ -521,7 +521,13 @@ function delSel(){
   sel=null;stype=null;document.getElementById('dBtn').style.display='none';render();
 }
 function delFromModal(){closeModal();if(sel)delSel();}
-function delArrow(){closeArrow();if(sel)delSel();}
+function delArrow(){
+  if(eeid){edges=edges.filter(e=>e.id!==eeid);}
+  eeid=null;sel=null;stype=null;
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('arrow-modal').style.display='none';
+  render();
+}
 
 /* CONNECT */
 function toggleConn(){
